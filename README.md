@@ -39,17 +39,17 @@ We are implementing our code in C++. MAC computer are for small to medium level 
 GHC machine are good enough for small to medium level GPU testing. If we have the time to
 attempt our 125 percent goal, we might try other machines with more GPU powers.
 ### SCHEDULE
-3.24-3.30: Understand the logic of FFT; Understand research papers about parallel GPU FFT.
+3.24-3.30: Understand the logic of FFT.
 
 3.31-4.06: Write sequential code for FFT; Implement parallel CPU FFT.
 
 4.07-4.13: Analyze parallel CPU FFT performance; Prepare for checkpoint report.
 
-4.14-4.20: Implement parallel GPU FFT; Analyze parallel GPU FFT performance.
+4.14-4.20: Understand research papers about parallel GPU FFT(Both); Further improve parallel CPU FFT performance(Yitao); 
 
-4.21-4.27: Understand research papers about parallel FFT’s application in image/voice processing.
+4.21-4.27: Implement parallel GPU FFT(Both); Analyze parallel GPU FFT performance(Both). 
 
-4.28-5.04: Try to implement FFT’s application in image/voice processing.
+4.28-5.04: Understand research papers about parallel FFT’s application in image/voice processing(Both); Try to implement FFT’s application in image/voice processing(Both).
 
 ### References
 [1] Wikipedia. Fast Fourier transform — Wikipedia, the free encyclopedia. http://en.wikipedia.
