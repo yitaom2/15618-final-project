@@ -55,3 +55,4 @@ attempt our 125 percent goal, we might try other machines with more GPU powers.
 [1] Wikipedia. Fast Fourier transform — Wikipedia, the free encyclopedia. http://en.wikipedia.
 org/w/index.php?title=Fast\%20Fourier\%20transform&oldid=1073961290, 2022. [On-
 line; accessed 22-March-2022].
+[2] youtube channels: Reducible; 3Blue1Brown
