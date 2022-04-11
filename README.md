@@ -51,6 +51,21 @@ attempt our 125 percent goal, we might try other machines with more GPU powers.
 
 4.28-5.04: Understand research papers about parallel FFT’s application in image/voice processing(Both); Try to implement FFT’s application in image/voice processing(Both).
 
+### Milestone Report
+In the last two weeks, our group studied and coded Fast Fourier Transformation (FFT). There are different FFTs for different applications, and we have written sequential code for one of the most general form -- the one for polynomial multiplication. We have also explored CPU parallization for FFT program.
+
+We were able to reach most of our goals. An exception is to study GPU parallization of FFT. We are confident that we will be able to reach the 75 percent goal, and we are still optimistic regarding the 100 percent goal. 
+
+At the poster session, we will briefly explain what FFT is and its usage, then we will reveal our CPU parallaized speedup analysis, and hopefully also GPU parallaized speedup analysis. There will likely be graphs and no demo.
+
+Our CPU parallelization is showing reasonable speedup. For example, 8 cores have around 3 times speedup. It is still not ideal and we intend to further explore CPU parallelization, but this is not trivial.
+
+At this point we are concerned with two major issues. 
+
+(1) We are rather unfamiliar with most forms of FFT. Understanding the logic behind them and debugging is time consuming. We already have a working version for one of the FFT, but we want to explore other FFTs as well. 
+
+(2) We haven't fully understood the GPU parallelization of FFT. Also, the GPU parallelization will very likely require modification of our current data structures, and we are unsure of the speedup we could achieve.
+
 ### References
 [1] Wikipedia. Fast Fourier transform — Wikipedia, the free encyclopedia. http://en.wikipedia.
 org/w/index.php?title=Fast\%20Fourier\%20transform&oldid=1073961290, 2022. [On-
