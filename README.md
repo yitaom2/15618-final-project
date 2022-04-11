@@ -2,14 +2,14 @@
 Proposal link: https://drive.google.com/file/d/1H6Dh6pzju2yUPYrLQwE_7uuU_qGkSM_r/view?usp=sharing
 
 ### Sections
-[Summary](#summary). 
-[Background](#background). 
-[Challenge](#challenge). 
-[Resources](#resources). 
-[Goals and deliverables](#goals-and-deliverables). 
-[Platform choice](#platform-choice). 
-[Schedule](#schedule). 
-[Milestone Report](#milestone-report). 
+[Summary](#summary) <br/>
+[Background](#background) <br/>
+[Challenge](#challenge) <br/>
+[Resources](#resources) <br/>
+[Goals and deliverables](#goals-and-deliverables) <br/>
+[Platform choice](#platform-choice) <br/>
+[Schedule](#schedule) <br/>
+[Milestone Report](#milestone-report) <br/>
 [References](#references)
 
 ### SUMMARY
