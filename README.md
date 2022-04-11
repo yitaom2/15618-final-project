@@ -55,7 +55,7 @@ attempt our 125 percent goal, we might try other machines with more GPU powers.
 
 4.28-5.04: Understand research papers about parallel FFT’s application in image/voice processing(Both); Try to implement FFT’s application in image/voice processing(Both).
 
-### Milestone Report
+# Milestone Report
 In the last two weeks, our group studied and coded Fast Fourier Transformation (FFT). There are different FFTs for different applications, and we have written sequential code for one of the most general form -- the one for polynomial multiplication. We have also explored CPU parallization for FFT program.
 
 We were able to reach most of our goals. An exception is to study GPU parallization of FFT. We are confident that we will be able to reach the 75 percent goal, and we are still optimistic regarding the 100 percent goal. 
