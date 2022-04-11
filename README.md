@@ -3,13 +3,21 @@ Proposal link: https://drive.google.com/file/d/1H6Dh6pzju2yUPYrLQwE_7uuU_qGkSM_r
 
 ### Sections
 [Summary](#summary)
+
 [Background](#background)
+
 [Challenge](#challenge)
+
 [Resources](#resources)
+
 [Goals and deliverables](#goals-and-deliverables)
+
 [Platform choice](#platform-choice)
+
 [Schedule](#schedule)
+
 [Milestone Report](#milestone-report)
+
 [References](#references)
 
 ### SUMMARY
