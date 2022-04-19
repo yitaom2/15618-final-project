@@ -6,3 +6,6 @@ RUN wget https://github.com/google/benchmark/archive/refs/tags/v1.6.1.zip && unz
     && cd benchmark-1.6.1 && cmake -E make_directory "build" \
     && cmake -E chdir "build" cmake -DBENCHMARK_DOWNLOAD_DEPENDENCIES=on -DCMAKE_BUILD_TYPE=Release ../ \
     && cmake --build "build" --config Release --target install
+WORKDIR /work
+COPY entrypoint.sh entrypoint.sh
+ENTRYPOINT [ "./entrypoint.sh" ]
