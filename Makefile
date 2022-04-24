@@ -3,7 +3,7 @@ APP_NAME=fftifft
 OBJS=fft.o
 
 CXX = g++ -m64 -std=c++11
-CXXFLAGS = -I. -Wall -fopenmp -Wno-unknown-pragmas -g
+CXXFLAGS = -I. -Wall -fopenmp -Wno-unknown-pragmas -O3
 BENCHMARKFLAGS = -lfftw3 /usr/local/lib/libbenchmark.a -pthread -lm $(CXXFLAGS)
 
 default: $(APP_NAME)

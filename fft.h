@@ -8,7 +8,7 @@ typedef long long int len_t;
 
 typedef struct fft_plan {
     len_t n, upper_n;
-    std::complex<double> *in, *out, *tmp, *in_concate, *out_concate;
+    std::complex<double> *in, *out, *out_pad, *ws;
     bool reverse;
 } fft_plan;
 

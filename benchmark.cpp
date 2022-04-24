@@ -5,7 +5,7 @@
 #include <benchmark/benchmark.h>
 #include "fft.h"
 
-const int N = 100000;
+const int N = 1 << 20;
 
 static void bm_fftw3(benchmark::State& state) {
     fftw_complex *in, *out;

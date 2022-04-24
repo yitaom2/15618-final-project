@@ -24,37 +24,19 @@ complex<double> e_imaginary(double x) {
     return real_part + comp_part;
 }
 
-void raw_fft_itr(complex<double>* input, complex<double>* output, complex<double>* tmp, len_t n, bool reverse) {
-    for (len_t i = 0; i < n; i++) {
-        output[i] = input[i];
-    }
-    for (len_t i = 0; i < log2(n); i++) {
-        len_t block_size = (n >> i);
-        #pragma omp parallel for num_threads(1)
-        for (len_t block_idx = 0; block_idx < (1 << i); block_idx++) {
-            len_t startidx = block_idx * block_size;
-            for (int j = 0; j < block_size; j++) {
-                if (j % 2 == 0) tmp[startidx + j/2] = output[startidx + j];
-                else tmp[startidx + block_size/2 + (j-1)/2] = output[startidx + j];
+void raw_fft_itr(complex<double>* output, complex<double>* ws, len_t n, bool reverse) {
+    for (len_t block_size = 2; block_size <= n; block_size *= 2) {
+        len_t half_block_size = block_size >> 1;
+        int step = n / block_size;
+        // #pragma omp parallel for num_threads(1)
+        for (len_t i = 0; i < n; i += block_size) {
+            for (int j = 0; j < half_block_size; j++) {
+                complex<double> x = output[i + j];
+                complex<double> y = output[i + j + half_block_size] * ws[j * step];
+                output[i + j] = x + y;
+                output[i + j + half_block_size] = x - y;
             }
         }
-        for (int j = 0; j < n; j++) output[j] = tmp[j];
-    }
-    for (len_t i = 1; i <= log2(n); i++) {
-        len_t block_size = (1 << i);
-        complex<double> w = e_imaginary(double(2 * M_PI) / double(block_size));
-        if (reverse) {
-            w = e_imaginary(-double(2 * M_PI) / double(block_size));
-        }
-        #pragma omp parallel for num_threads(1)
-        for (len_t block_idx = 0; block_idx < (n >> i); block_idx++) {
-            len_t startidx = block_idx * block_size;
-            for (int j = 0; j < block_size/2; j++) {
-                tmp[startidx + j] = output[startidx + j] + pow(w, j) * output[startidx + block_size/2 + j];
-                tmp[startidx + j + block_size/2] = output[startidx + j] - pow(w, j) * output[startidx + block_size/2 + j];
-            }
-        }
-        for (int j = 0; j < n; j++) output[j] = tmp[j];
     }
     if (reverse) {
         for (len_t i = 0; i < n; i++) {
@@ -65,22 +47,35 @@ void raw_fft_itr(complex<double>* input, complex<double>* output, complex<double
 
 fft_plan fft_plan_dft_1d(len_t n, std::complex<double> *in, std::complex<double> *out, bool reverse) {
     len_t upper_n = power_of_two(n);
-    complex<double> *in_concate = (complex<double>*) calloc(upper_n, sizeof(complex<double>));
-    complex<double> *out_concate = (complex<double>*) calloc(upper_n, sizeof(complex<double>));
-    complex<double> *tmp = (complex<double>*) calloc(upper_n, sizeof(complex<double>));
-    for (len_t i = 0; i < n; i++)
-        in_concate[i] = in[i];
-    return fft_plan{n, upper_n, in, out, tmp, in_concate, out_concate, reverse};
+    complex<double> *out_pad = (complex<double>*) calloc(upper_n, sizeof(complex<double>));
+    complex<double> *ws = (complex<double>*) calloc(upper_n, sizeof(complex<double>));
+    int *index_mapping = (int*) calloc(upper_n, sizeof(int));
+    // swap
+    int bit=0;
+    while ((1<<bit) < upper_n) bit++;
+    for (int i = 0; i < upper_n - 1; i++) {
+        index_mapping[i] = (index_mapping[i >> 1] >> 1) | ((i & 1) << (bit - 1));
+    }
+    index_mapping[upper_n - 1] = upper_n - 1;
+    for (int i = 0; i < upper_n; i++)
+        out_pad[index_mapping[i]] = in[i];
+    free(index_mapping);
+    // precompute unit root
+    ws[0] = complex<double>(1, 0);
+    ws[1] = e_imaginary(double(2 * M_PI) / double(upper_n) * (reverse ? -1 : 1)); 
+    for (int i = 2; i < upper_n / 2; i++)
+        ws[i] = ws[i - 1] * ws[1];
+    
+    return fft_plan{n, upper_n, in, out, out_pad, ws, reverse};
 }
 
 void fft_execute(fft_plan &plan) {
-    raw_fft_itr(plan.in_concate, plan.out_concate, plan.tmp, plan.upper_n, plan.reverse);
+    raw_fft_itr(plan.out_pad, plan.ws, plan.upper_n, plan.reverse);
     for (len_t i = 0; i < plan.n; i++)
-        plan.out[i] = plan.out_concate[i];
+        plan.out[i] = plan.out_pad[i];
 }
 
 void fft_destroy_plan(fft_plan &plan) {
-    free(plan.tmp);
-    free(plan.in_concate);
-    free(plan.out_concate);
+    free(plan.out_pad);
+    free(plan.ws);
 }
