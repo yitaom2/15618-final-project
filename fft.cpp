@@ -25,17 +25,17 @@ complex<double> e_imaginary(double x) {
 }
 
 void raw_fft_itr(complex<double>* output, complex<double>* ws, len_t n, bool reverse) {
-    for (len_t block_size = 2; block_size <= n; block_size *= 2) {
+    for (len_t block_size = 2, p = 0; block_size <= n; block_size *= 2, p++) {
         len_t half_block_size = block_size >> 1;
         int step = n / block_size;
-        // #pragma omp parallel for num_threads(1)
-        for (len_t i = 0; i < n; i += block_size) {
-            for (int j = 0; j < half_block_size; j++) {
-                complex<double> x = output[i + j];
-                complex<double> y = output[i + j + half_block_size] * ws[j * step];
-                output[i + j] = x + y;
-                output[i + j + half_block_size] = x - y;
-            }
+        #pragma omp parallel for schedule(static),num_threads(8)
+        for (len_t i = 0; i < n / 2; i++) {
+            len_t offset = (i >> p) << (p + 1);
+            len_t j = i & (half_block_size - 1);
+            complex<double> x = output[offset + j];
+            complex<double> y = output[offset + j + half_block_size] * ws[j * step];
+            output[offset + j] = x + y;
+            output[offset + j + half_block_size] = x - y;
         }
     }
     if (reverse) {
