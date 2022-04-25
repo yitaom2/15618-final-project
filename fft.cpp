@@ -30,12 +30,12 @@ void raw_fft_itr(complex<double>* output, complex<double>* ws, len_t n, bool rev
         int step = n / block_size;
         #pragma omp parallel for schedule(static),num_threads(num_threads)
         for (len_t i = 0; i < n / 2; i++) {
-            len_t offset = (i >> p) << (p + 1);
             len_t j = i & (half_block_size - 1);
-            complex<double> x = output[offset + j];
-            complex<double> y = output[offset + j + half_block_size] * ws[j * step];
-            output[offset + j] = x + y;
-            output[offset + j + half_block_size] = x - y;
+            len_t index = ((i >> p) << (p + 1)) + j;
+            complex<double> x = output[index];
+            complex<double> y = output[index + half_block_size] * ws[j * step];
+            output[index] = x + y;
+            output[index + half_block_size] = x - y;
         }
     }
     if (reverse) {
