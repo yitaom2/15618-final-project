@@ -24,11 +24,11 @@ complex<double> e_imaginary(double x) {
     return real_part + comp_part;
 }
 
-void raw_fft_itr(complex<double>* output, complex<double>* ws, len_t n, bool reverse) {
+void raw_fft_itr(complex<double>* output, complex<double>* ws, len_t n, bool reverse, int num_threads) {
     for (len_t block_size = 2, p = 0; block_size <= n; block_size *= 2, p++) {
         len_t half_block_size = block_size >> 1;
         int step = n / block_size;
-        #pragma omp parallel for schedule(static),num_threads(8)
+        #pragma omp parallel for schedule(static),num_threads(num_threads)
         for (len_t i = 0; i < n / 2; i++) {
             len_t offset = (i >> p) << (p + 1);
             len_t j = i & (half_block_size - 1);
@@ -45,7 +45,7 @@ void raw_fft_itr(complex<double>* output, complex<double>* ws, len_t n, bool rev
     }
 }
 
-fft_plan fft_plan_dft_1d(len_t n, std::complex<double> *in, std::complex<double> *out, bool reverse) {
+fft_plan fft_plan_dft_1d(len_t n, std::complex<double> *in, std::complex<double> *out, bool reverse, int num_threads = 1) {
     len_t upper_n = power_of_two(n);
     complex<double> *out_pad = (complex<double>*) calloc(upper_n, sizeof(complex<double>));
     complex<double> *ws = (complex<double>*) calloc(upper_n, sizeof(complex<double>));
@@ -66,11 +66,11 @@ fft_plan fft_plan_dft_1d(len_t n, std::complex<double> *in, std::complex<double>
     for (int i = 2; i < upper_n / 2; i++)
         ws[i] = ws[i - 1] * ws[1];
     
-    return fft_plan{n, upper_n, in, out, out_pad, ws, reverse};
+    return fft_plan{n, upper_n, in, out, out_pad, ws, reverse, num_threads};
 }
 
 void fft_execute(fft_plan &plan) {
-    raw_fft_itr(plan.out_pad, plan.ws, plan.upper_n, plan.reverse);
+    raw_fft_itr(plan.out_pad, plan.ws, plan.upper_n, plan.reverse, plan.num_threads);
     for (len_t i = 0; i < plan.n; i++)
         plan.out[i] = plan.out_pad[i];
 }

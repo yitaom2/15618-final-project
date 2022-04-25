@@ -24,7 +24,7 @@ static void bm_fftw3(benchmark::State& state) {
     fftw_free(out);
 }
 
-static void bm_fft(benchmark::State& state) {
+static void bm_fft_single_thread(benchmark::State& state) {
     srand(time(NULL));
     std::complex<double> *input = (std::complex<double>*) calloc(N, sizeof(std::complex<double>));
     std::complex<double> *out = (std::complex<double>*) calloc(N, sizeof(std::complex<double>));
@@ -33,7 +33,7 @@ static void bm_fft(benchmark::State& state) {
         double d2 = static_cast<double> (rand()) / static_cast<double> (RAND_MAX);;
         input[i] = std::complex<double>(d1, d2);
     }
-    fft_plan plan = fft_plan_dft_1d(N, input, out, false);
+    fft_plan plan = fft_plan_dft_1d(N, input, out, false, 1);
 
     while (state.KeepRunning()) {
         fft_execute(plan);
@@ -44,10 +44,30 @@ static void bm_fft(benchmark::State& state) {
     free(out);
 }
 
+static void bm_fft_multithread(benchmark::State& state) {
+    srand(time(NULL));
+    std::complex<double> *input = (std::complex<double>*) calloc(N, sizeof(std::complex<double>));
+    std::complex<double> *out = (std::complex<double>*) calloc(N, sizeof(std::complex<double>));
+    for (len_t i = 0; i < N; i++) {
+        double d1 = static_cast<double> (rand()) / static_cast<double> (RAND_MAX);
+        double d2 = static_cast<double> (rand()) / static_cast<double> (RAND_MAX);;
+        input[i] = std::complex<double>(d1, d2);
+    }
+    fft_plan plan = fft_plan_dft_1d(N, input, out, false, 8);
+
+    while (state.KeepRunning()) {
+        fft_execute(plan);
+        benchmark::DoNotOptimize(out); 
+    }
+    fft_destroy_plan(plan);
+    free(input);
+    free(out);
+}
 
 int main(int argc, char** argv) {
     benchmark::RegisterBenchmark("fftw3", bm_fftw3);
-    benchmark::RegisterBenchmark("fft", bm_fft);
+    benchmark::RegisterBenchmark("fft_single_thread", bm_fft_single_thread);
+    benchmark::RegisterBenchmark("fft_multithread", bm_fft_multithread);
  
     benchmark::Initialize(&argc, argv);
     benchmark::RunSpecifiedBenchmarks();
