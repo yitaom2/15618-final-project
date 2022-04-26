@@ -72,7 +72,8 @@ static void bm_fft_ispc(benchmark::State& state) {
     for (len_t i = 0; i < N; i++) {
         double d1 = static_cast<double> (rand()) / static_cast<double> (RAND_MAX);
         double d2 = static_cast<double> (rand()) / static_cast<double> (RAND_MAX);;
-        input[i] = complex_ispc(d1, d2);
+        input[i].re = d1;
+        input[i].im = d2;
     }
     fft_plan_ispc plan = fft_plan_ispc_1d(N, input, out, false);
 
@@ -89,6 +90,7 @@ int main(int argc, char** argv) {
     benchmark::RegisterBenchmark("fftw3", bm_fftw3);
     benchmark::RegisterBenchmark("fft_single_thread", bm_fft_single_thread);
     benchmark::RegisterBenchmark("fft_multithread", bm_fft_multithread);
+    benchmark::RegisterBenchmark("fft_ispc", bm_fft_ispc);
  
     benchmark::Initialize(&argc, argv);
     benchmark::RunSpecifiedBenchmarks();

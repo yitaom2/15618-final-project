@@ -1,7 +1,7 @@
 #include <math.h>
 #include "fft_ispc.h"
 
-complex_ispc e_imaginary(double x) {
+complex_ispc e_imaginary_ispc(double x) {
     return complex_ispc{cos(x), sin(x)};
 }
 
@@ -24,15 +24,14 @@ fft_plan_ispc fft_plan_ispc_1d(int n, complex_ispc *in, complex_ispc *out, bool 
     free(index_mapping);
     // precompute unit root
     ws[0].re = 0;
-    ws[1] = e_imaginary(double(2 * M_PI) / double(upper_n) * (reverse ? -1 : 1)); 
-    for (int i = 2; i < upper_n / 2; i++)
-        ws[i] = ws[i - 1] * ws[1];
+    ws[1] = e_imaginary_ispc(double(2 * M_PI) / double(upper_n) * (reverse ? -1 : 1)); 
+    precompute_unit_root(ws, upper_n);
     return fft_plan_ispc{n, upper_n, in, out, out_pad, ws, reverse};
 }
 
 void fft_execute_ispc(fft_plan_ispc &plan) {
     fft_ispc(plan.out_pad, plan.ws, plan.upper_n, plan.reverse);
-    for (len_t i = 0; i < plan.n; i++)
+    for (int i = 0; i < plan.n; i++)
         plan.out[i] = plan.out_pad[i];
 }
 

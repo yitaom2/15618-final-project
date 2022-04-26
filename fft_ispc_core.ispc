@@ -3,24 +3,29 @@ struct complex_ispc {
 };
 
 complex_ispc operator+ (const complex_ispc &a, const complex_ispc &b) {
-    struct complex_ispc result;
+    complex_ispc result;
     result.re = a.re + b.re;
     result.im = a.im + b.im;
     return result;
 }
 
 complex_ispc operator- (const complex_ispc &a, const complex_ispc &b) {
-    struct complex_ispc result;
+    complex_ispc result;
     result.re = a.re - b.re;
     result.im = a.im - b.im;
     return result;
 }
 
 complex_ispc operator* (complex_ispc a, complex_ispc b) {
-    struct complex_ispc result;
+    complex_ispc result;
     result.re = a.re * b.re - a.im * b.im;
     result.im = a.re * b.im + a.im * b.re;
     return result;
+}
+
+export void precompute_unit_root(uniform complex_ispc ws[], uniform int n) {
+    for (int i = 2; i < n / 2; i++)
+        ws[i] = ws[i - 1] * ws[1];
 }
 
 export void fft_ispc(uniform complex_ispc output[], uniform complex_ispc ws[], uniform int n, uniform bool reverse) {

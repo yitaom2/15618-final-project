@@ -5,7 +5,9 @@
 #include "fft_ispc_core.h"
 #include <complex>
 
-struct fft_ispc_plan {
+using namespace ispc;
+
+struct fft_plan_ispc {
     int n, upper_n;
     complex_ispc *in, *out, *out_pad, *ws;
     bool reverse;

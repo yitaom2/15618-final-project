@@ -6,6 +6,9 @@ RUN wget https://github.com/google/benchmark/archive/refs/tags/v1.6.1.zip && unz
     && cd benchmark-1.6.1 && cmake -E make_directory "build" \
     && cmake -E chdir "build" cmake -DBENCHMARK_DOWNLOAD_DEPENDENCIES=on -DCMAKE_BUILD_TYPE=Release ../ \
     && cmake --build "build" --config Release --target install
+RUN wget https://github.com/ispc/ispc/releases/download/v1.17.0/ispc-v1.17.0-linux.tar.gz \
+    && tar -xzf ispc-v1.17.0-linux.tar.gz
+ENV PATH="/ispc-v1.17.0-linux/bin:${PATH}" 
 WORKDIR /work
 COPY entrypoint.sh entrypoint.sh
 ENTRYPOINT [ "./entrypoint.sh" ]
