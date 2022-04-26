@@ -29,14 +29,16 @@ export void precompute_unit_root(uniform complex_ispc ws[], uniform int n) {
 }
 
 export void fft_ispc(uniform complex_ispc output[], uniform complex_ispc ws[], uniform int n, uniform bool reverse) {
+    uniform int shift = 0;
+    for (int x = n; x > 1; x >>= 1, shift++);
     for (uniform int block_size = 2, p = 0; block_size <= n; block_size *= 2, p++) {
         uniform int half_block_size = block_size >> 1;
-        uniform int step = n / block_size;
+        shift -= 1;
         foreach (i = 0 ... (n >> 1)) {
             int j = i & (half_block_size - 1);
             int index = ((i >> p) << (p + 1)) + j;
             complex_ispc x = output[index];
-            complex_ispc y = output[index + half_block_size] * ws[j * step];
+            complex_ispc y = output[index + half_block_size] * ws[j << shift];
             output[index] = x + y;
             output[index + half_block_size] = x - y;
         }
