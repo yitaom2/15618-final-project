@@ -4,6 +4,7 @@
 #include <fftw3.h>
 #include <benchmark/benchmark.h>
 #include "fft.h"
+#include "fft_ispc.h"
 
 const int N = 1 << 20;
 
@@ -60,6 +61,26 @@ static void bm_fft_multithread(benchmark::State& state) {
         benchmark::DoNotOptimize(out); 
     }
     fft_destroy_plan(plan);
+    free(input);
+    free(out);
+}
+
+static void bm_fft_ispc(benchmark::State& state) {
+    srand(time(NULL));
+    complex_ispc *input = (complex_ispc*) calloc(N, sizeof(complex_ispc));
+    complex_ispc *out = (complex_ispc*) calloc(N, sizeof(complex_ispc));
+    for (len_t i = 0; i < N; i++) {
+        double d1 = static_cast<double> (rand()) / static_cast<double> (RAND_MAX);
+        double d2 = static_cast<double> (rand()) / static_cast<double> (RAND_MAX);;
+        input[i] = complex_ispc(d1, d2);
+    }
+    fft_plan_ispc plan = fft_plan_ispc_1d(N, input, out, false);
+
+    while (state.KeepRunning()) {
+        fft_execute_ispc(plan);
+        benchmark::DoNotOptimize(out); 
+    }
+    fft_destroy_plan_ispc(plan);
     free(input);
     free(out);
 }
