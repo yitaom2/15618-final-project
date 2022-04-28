@@ -12,7 +12,7 @@ int main(int argc, char **argv) {
     complex<double> *in = NULL;
     complex<double> *out = NULL;
     if (DEBUG) {
-        n = 1 << 20;
+        n = 1 << 19;
         in = (complex<double>*) calloc(n, sizeof(complex<double>));
         out = (complex<double>*) calloc(n, sizeof(complex<double>));
 
@@ -31,14 +31,14 @@ int main(int argc, char **argv) {
     }
     int num_threads = 1;
     fft_plan plan = fft_plan_dft_1d(n, in, out, false, num_threads);
-    fft_execute(plan);
+    for(int i = 0; i < 10; i++) fft_execute(plan);
     fft_destroy_plan(plan);
     
     plan = fft_plan_dft_1d(n, out, in, true, num_threads);
-    fft_execute(plan);
+    for(int i = 0; i < 10; i++) fft_execute(plan);
     fft_destroy_plan(plan);
     
-    //for (int i = 0; i < n; i++) printf("%d", (int)(in[i].real() + 0.5));
+    // for (int i = 0; i < n; i++) printf("%d", (int)(in[i].real() + 0.5));
     puts("");
     free(in);
     free(out);

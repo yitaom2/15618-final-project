@@ -18,3 +18,5 @@ fft_plan fft_plan_dft_1d(len_t n, std::complex<double> *in, std::complex<double>
 void fft_execute(fft_plan &plan);
 
 void fft_destroy_plan(fft_plan &plan);
+
+// TODO: define complex number as structure of two int

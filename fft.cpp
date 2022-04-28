@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "fft.h"
+#include "immintrin.h"
 using namespace std;
 
 len_t power_of_two(len_t n) {
@@ -25,24 +26,103 @@ complex<double> e_imaginary(double x) {
 }
 
 void raw_fft_itr(complex<double>* output, complex<double>* ws, len_t n, bool reverse, int num_threads) {
-    for (len_t block_size = 2, p = 0; block_size <= n; block_size *= 2, p++) {
+    len_t block_size = 2;
+    for (; block_size <= (16 <= n ? 16 : n); block_size *= 2) {
         len_t half_block_size = block_size >> 1;
         int step = n / block_size;
-        #pragma omp parallel for schedule(static),num_threads(num_threads)
-        for (len_t i = 0; i < n / 2; i++) {
-            len_t j = i & (half_block_size - 1);
-            len_t index = ((i >> p) << (p + 1)) + j;
-            complex<double> x = output[index];
-            complex<double> y = output[index + half_block_size] * ws[j * step];
-            output[index] = x + y;
-            output[index + half_block_size] = x - y;
+        for (len_t i = 0; i < n; i += block_size) {
+            for (int j = 0; j < half_block_size; j++) {
+                complex<double> x = output[i + j];
+                complex<double> y = output[i + j + half_block_size] * ws[j * step];
+                output[i + j] = x + y;
+                output[i + j + half_block_size] = x - y;
+            }
+        }
+    }
+    // __m256* output_simd_real = (__m256*) calloc(n/8, sizeof(__m256));
+    // __m256* output_simd_imag = (__m256*) calloc(n/8, sizeof(__m256));
+    alignas(256) __m256 output_simd_real[n/8];
+    alignas(256) __m256 output_simd_imag[n/8];
+    // __m256* ws_simd_real;
+    // __m256* ws_simd_imag;
+    for (len_t i = 0; i < n/8; i++) {
+        float real[8], imag[8];
+        for (int j = 0; j < 8; j++) {
+            real[j] = output[i*8+j].real();
+            imag[j] = output[i*8+j].imag();
+        }
+        output_simd_real[i] = _mm256_load_ps(&real[0]);
+        output_simd_imag[i] = _mm256_load_ps(&imag[0]);
+    }
+    
+    for (; block_size <= n; block_size *= 2) {
+        len_t half_block_size = block_size >> 1;
+        len_t half_block_size_simd = half_block_size >> 3;
+        int step = n / block_size;
+        __m256 ws_simd_real[half_block_size_simd];
+        __m256 ws_simd_imag[half_block_size_simd];
+        // ws_simd_real = (__m256*) calloc(half_block_size_simd, sizeof(__m256));
+        // ws_simd_imag = (__m256*) calloc(half_block_size_simd, sizeof(__m256));
+        for (len_t i = 0; i < half_block_size_simd; i++) {
+            float real[8], imag[8];
+            for (int j = 0; j < 8; j++) {
+                real[j] = ws[(8*i+j) * step].real();
+                imag[j] = ws[(8*i+j) * step].imag();
+            }
+            ws_simd_real[i] = _mm256_load_ps(&real[0]);
+            ws_simd_imag[i] = _mm256_load_ps(&imag[0]);
+        }
+        for (len_t i = 0; i < n; i += block_size) {
+            int i_simd = i >> 3;
+            for (int j = 0; j < half_block_size_simd; j++) {
+                __m256 x_real = output_simd_real[i_simd + j];
+                __m256 x_imag = output_simd_imag[i_simd + j];
+                __m256 y_real = _mm256_sub_ps(_mm256_mul_ps(output_simd_real[i_simd + j + half_block_size_simd], ws_simd_real[j]), _mm256_mul_ps(output_simd_imag[i_simd + j + half_block_size_simd], ws_simd_imag[j]));
+                __m256 y_imag = _mm256_add_ps(_mm256_mul_ps(output_simd_real[i_simd + j + half_block_size_simd], ws_simd_imag[j]), _mm256_mul_ps(output_simd_imag[i_simd + j + half_block_size_simd], ws_simd_real[j]));
+                output_simd_real[i_simd + j] = _mm256_add_ps(x_real, y_real);
+                output_simd_imag[i_simd + j] = _mm256_add_ps(x_imag, y_imag);
+                output_simd_real[i_simd + j + half_block_size_simd] = _mm256_sub_ps(x_real, y_real);
+                output_simd_imag[i_simd + j + half_block_size_simd] = _mm256_sub_ps(x_imag, y_imag);
+            }
+        }
+        // free(ws_simd_real);
+        // free(ws_simd_imag);
+    }
+
+    for (len_t i = 0; i < n/8; i++) {
+        float real[8], imag[8];
+        _mm256_store_ps(&real[0], output_simd_real[i]);
+        _mm256_store_ps(&imag[0], output_simd_imag[i]);
+        for (int j = 0; j < 8; j++) {
+            output[8*i+j] = complex<double>(real[j], imag[j]);
+        }
+    }
+
+    if (reverse) {
+        for (len_t i = 0; i < n; i++) {
+            output[i] *= complex<double>(1/(double)n, 0);
+        }
+    }
+
+
+    /*for (len_t block_size = 2; block_size <= n; block_size *= 2) {
+        len_t half_block_size = block_size >> 1;
+        int step = n / block_size;
+        // #pragma omp parallel for num_threads(1)
+        for (len_t i = 0; i < n; i += block_size) {
+            for (int j = 0; j < half_block_size; j++) {
+                complex<double> x = output[i + j];
+                complex<double> y = output[i + j + half_block_size] * ws[j * step];
+                output[i + j] = x + y;
+                output[i + j + half_block_size] = x - y;
+            }
         }
     }
     if (reverse) {
         for (len_t i = 0; i < n; i++) {
             output[i] *= complex<double>(1/(double)n, 0);
         }
-    }
+    }*/
 }
 
 fft_plan fft_plan_dft_1d(len_t n, std::complex<double> *in, std::complex<double> *out, bool reverse, int num_threads = 1) {
