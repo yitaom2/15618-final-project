@@ -1,8 +1,10 @@
+#define VEC_SHIFT 3
+#define VEC_SIZE (1 << VEC_SHIFT)
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "fft.h"
-#include "immintrin.h"
 using namespace std;
 
 len_t power_of_two(len_t n) {
@@ -25,108 +27,146 @@ complex<double> e_imaginary(double x) {
     return real_part + comp_part;
 }
 
-void raw_fft_itr(complex<double>* output, complex<double>* ws, len_t n, bool reverse, int num_threads) {
-    len_t block_size = 2;
-    for (; block_size <= (16 <= n ? 16 : n); block_size *= 2) {
-        len_t half_block_size = block_size >> 1;
-        int step = n / block_size;
-        for (len_t i = 0; i < n; i += block_size) {
-            for (int j = 0; j < half_block_size; j++) {
-                complex<double> x = output[i + j];
-                complex<double> y = output[i + j + half_block_size] * ws[j * step];
-                output[i + j] = x + y;
-                output[i + j + half_block_size] = x - y;
-            }
-        }
-    }
-    __m256* output_simd_real = (__m256*) aligned_alloc(256, n / 8 * sizeof(__m256));
-    __m256* output_simd_imag = (__m256*) aligned_alloc(256, n / 8 * sizeof(__m256));
-    // alignas(256) __m256 output_simd_real[n/8];
-    // alignas(256) __m256 output_simd_imag[n/8];
-    // __m256* ws_simd_real;
-    // __m256* ws_simd_imag;
-    for (len_t i = 0; i < n/8; i++) {
-        float real[8], imag[8];
-        for (int j = 0; j < 8; j++) {
-            real[j] = output[i*8+j].real();
-            imag[j] = output[i*8+j].imag();
-        }
-        output_simd_real[i] = _mm256_load_ps(&real[0]);
-        output_simd_imag[i] = _mm256_load_ps(&imag[0]);
-    }
-
-    __m256 *ws_simd_real = (__m256*) aligned_alloc(256, n / 8 * sizeof(__m256));
-    __m256 *ws_simd_imag = (__m256*) aligned_alloc(256, n / 8 * sizeof(__m256));
-    for (; block_size <= n; block_size *= 2) {
-        len_t half_block_size = block_size >> 1;
-        len_t half_block_size_simd = half_block_size >> 3;
-        int step = n / block_size;
-        
-        for (len_t i = 0; i < half_block_size_simd; i++) {
-            float real[8], imag[8];
-            for (int j = 0; j < 8; j++) {
-                real[j] = ws[(8*i+j) * step].real();
-                imag[j] = ws[(8*i+j) * step].imag();
-            }
-            ws_simd_real[i] = _mm256_load_ps(&real[0]);
-            ws_simd_imag[i] = _mm256_load_ps(&imag[0]);
-        }
-        for (len_t i = 0; i < n; i += block_size) {
-            int i_simd = i >> 3;
-            for (int j = 0; j < half_block_size_simd; j++) {
-                __m256 x_real = output_simd_real[i_simd + j];
-                __m256 x_imag = output_simd_imag[i_simd + j];
-                __m256 y_real = _mm256_sub_ps(_mm256_mul_ps(output_simd_real[i_simd + j + half_block_size_simd], ws_simd_real[j]), _mm256_mul_ps(output_simd_imag[i_simd + j + half_block_size_simd], ws_simd_imag[j]));
-                __m256 y_imag = _mm256_add_ps(_mm256_mul_ps(output_simd_real[i_simd + j + half_block_size_simd], ws_simd_imag[j]), _mm256_mul_ps(output_simd_imag[i_simd + j + half_block_size_simd], ws_simd_real[j]));
-                output_simd_real[i_simd + j] = _mm256_add_ps(x_real, y_real);
-                output_simd_imag[i_simd + j] = _mm256_add_ps(x_imag, y_imag);
-                output_simd_real[i_simd + j + half_block_size_simd] = _mm256_sub_ps(x_real, y_real);
-                output_simd_imag[i_simd + j + half_block_size_simd] = _mm256_sub_ps(x_imag, y_imag);
-            }
-        }
-    }
-    free(ws_simd_real);
-    free(ws_simd_imag);
-
-    for (len_t i = 0; i < n/8; i++) {
-        float real[8], imag[8];
-        _mm256_store_ps(&real[0], output_simd_real[i]);
-        _mm256_store_ps(&imag[0], output_simd_imag[i]);
-        for (int j = 0; j < 8; j++) {
-            output[8*i+j] = complex<double>(real[j], imag[j]);
-        }
-    }
-    free(output_simd_real);
-    free(output_simd_imag);
-
-    if (reverse) {
-        for (len_t i = 0; i < n; i++) {
-            output[i] *= complex<double>(1/(double)n, 0);
-        }
-    }
-
-
-    /*for (len_t block_size = 2; block_size <= n; block_size *= 2) {
-        len_t half_block_size = block_size >> 1;
-        int step = n / block_size;
-        // #pragma omp parallel for num_threads(1)
-        for (len_t i = 0; i < n; i += block_size) {
-            for (int j = 0; j < half_block_size; j++) {
-                complex<double> x = output[i + j];
-                complex<double> y = output[i + j + half_block_size] * ws[j * step];
-                output[i + j] = x + y;
-                output[i + j + half_block_size] = x - y;
-            }
-        }
-    }
-    if (reverse) {
-        for (len_t i = 0; i < n; i++) {
-            output[i] *= complex<double>(1/(double)n, 0);
-        }
-    }*/
+complex_simd operator+ (const complex_simd &a, const complex_simd &b) {
+    complex_simd result;
+    result.re = a.re + b.re;
+    result.im = a.im + b.im;
+    return result;
 }
 
-fft_plan fft_plan_dft_1d(len_t n, std::complex<double> *in, std::complex<double> *out, bool reverse, int num_threads = 1) {
+complex_simd operator- (const complex_simd &a, const complex_simd &b) {
+    complex_simd result;
+    result.re = a.re - b.re;
+    result.im = a.im - b.im;
+    return result;
+}
+
+complex_simd operator* (const complex_simd &a, const complex_simd &b) {
+    complex_simd result;
+    result.re = a.re * b.re - a.im * b.im;
+    result.im = a.re * b.im + a.im * b.re;
+    return result;
+}
+
+void load_to_simd_vector(complex<double> *src, complex_simd *dst, int n) {
+    float *real = (float *) aligned_alloc(256, VEC_SIZE * sizeof(float));
+    float *imag = (float *) aligned_alloc(256, VEC_SIZE * sizeof(float));
+    for (len_t i = 0; i < n / VEC_SIZE; i++) {
+        for (int j = 0; j < VEC_SIZE; j++) {
+            real[j] = src[i * VEC_SIZE + j].real();
+            imag[j] = src[i * VEC_SIZE + j].imag();
+        }
+        dst[i].re = _mm256_load_ps(real);
+        dst[i].im = _mm256_load_ps(imag);
+    }
+    free(real);
+    free(imag);
+}
+
+void store_from_simd_vector(complex_simd *src, complex<double> *dst, int n) {
+    float *real = (float *) aligned_alloc(256, VEC_SIZE * sizeof(float));
+    float *imag = (float *) aligned_alloc(256, VEC_SIZE * sizeof(float));
+    for (len_t i = 0; i < n / VEC_SIZE; i++) {
+        _mm256_store_ps(real, src[i].re);
+        _mm256_store_ps(imag, src[i].im);
+        for (int j = 0; j < VEC_SIZE; j++) {
+            dst[VEC_SIZE * i + j] = complex<double>(real[j], imag[j]);
+        }
+    }
+    free(real);
+    free(imag);
+}
+
+void fft_SIMD(complex<double>* output, complex<double>* ws, len_t n, bool reverse, int num_threads) {
+    len_t shift = 0, p = 0, block_size = 2;
+    for (len_t x = n; x > 1; x >>= 1, shift++);
+
+    for (; block_size <= VEC_SIZE; block_size *= 2, p++) {
+        len_t half_block_size = block_size >> 1;
+        shift -= 1;
+        #pragma omp parallel for schedule(static),num_threads(num_threads)
+        for (len_t i = 0; i < n / 2; i++) {
+            len_t j = i & (half_block_size - 1);
+            len_t index = ((i >> p) << (p + 1)) + j;
+            complex<double> x = output[index];
+            complex<double> y = output[index + half_block_size] * ws[j << shift];
+            output[index] = x + y;
+            output[index + half_block_size] = x - y;
+        }
+    }
+
+    float *real = (float *) aligned_alloc(256, VEC_SIZE * sizeof(float));
+    float *imag = (float *) aligned_alloc(256, VEC_SIZE * sizeof(float));
+    complex_simd *out_simd = (complex_simd *) aligned_alloc(256, n / VEC_SIZE * sizeof(complex_simd));
+    complex_simd *ws_simd = (complex_simd *) aligned_alloc(256, n / 2 / VEC_SIZE * sizeof(complex_simd));
+
+    load_to_simd_vector(output, out_simd, n);
+    
+    for (; block_size <= n; block_size <<= 1, p++) {
+        shift -= 1;
+        len_t half_block_size = block_size >> 1;
+        len_t half_block_size_simd = half_block_size >> VEC_SHIFT;
+        len_t half_block_mask = half_block_size - 1;
+        
+        for (len_t i = 0; i < half_block_size >> VEC_SHIFT; i++) {
+            for (len_t _ = 0, j = i * VEC_SIZE; _ < VEC_SIZE; _++, j++) {
+                len_t index = (j & half_block_mask) << shift;
+                real[_] = ws[index].real();
+                imag[_] = ws[index].imag();
+            }
+            ws_simd[i].re = _mm256_load_ps(real);
+            ws_simd[i].im = _mm256_load_ps(imag);
+        }
+
+        #pragma omp parallel for schedule(static),num_threads(num_threads)
+        for (len_t i = 0; i < n / 2; i += VEC_SIZE) {
+            len_t j = i & half_block_mask;
+            len_t index = (((i >> p) << (p + 1)) + j) >> VEC_SHIFT;
+            complex_simd x = out_simd[index];
+            complex_simd y = out_simd[index + half_block_size_simd] * ws_simd[j >> VEC_SHIFT];
+            out_simd[index] = x + y;
+            out_simd[index + half_block_size_simd] = x - y;
+        }
+    }
+
+    store_from_simd_vector(out_simd, output, n);
+
+    if (reverse) {
+        for (len_t i = 0; i < n; i++) {
+            output[i] *= complex<double>(1/(double)n, 0);
+        }
+    }
+
+    free(real);
+    free(imag);
+    free(ws_simd);
+    free(out_simd);
+}
+
+void raw_fft_itr(complex<double>* output, complex<double>* ws, len_t n, bool reverse, int num_threads) {
+    int shift = 0;
+    for (int x = n; x > 1; x >>= 1, shift++);
+    for (len_t block_size = 2, p = 0; block_size <= n; block_size *= 2, p++) {
+        len_t half_block_size = block_size >> 1;
+        shift -= 1;
+        #pragma omp parallel for schedule(static),num_threads(num_threads)
+        for (len_t i = 0; i < n / 2; i++) {
+            len_t j = i & (half_block_size - 1);
+            len_t index = ((i >> p) << (p + 1)) + j;
+            complex<double> x = output[index];
+            complex<double> y = output[index + half_block_size] * ws[j << shift];
+            output[index] = x + y;
+            output[index + half_block_size] = x - y;
+        }
+    }
+    if (reverse) {
+        for (len_t i = 0; i < n; i++) {
+            output[i] *= complex<double>(1/(double)n, 0);
+        }
+    }
+}
+
+fft_plan fft_plan_dft_1d(len_t n, std::complex<double> *in, std::complex<double> *out, bool reverse, int num_threads = 1, bool SIMD = false) {
     len_t upper_n = power_of_two(n);
     complex<double> *out_pad = (complex<double>*) calloc(upper_n, sizeof(complex<double>));
     complex<double> *ws = (complex<double>*) calloc(upper_n, sizeof(complex<double>));
@@ -146,12 +186,17 @@ fft_plan fft_plan_dft_1d(len_t n, std::complex<double> *in, std::complex<double>
     ws[1] = e_imaginary(double(2 * M_PI) / double(upper_n) * (reverse ? -1 : 1)); 
     for (int i = 2; i < upper_n / 2; i++)
         ws[i] = ws[i - 1] * ws[1];
-    
-    return fft_plan{n, upper_n, in, out, out_pad, ws, reverse, num_threads};
+
+    fft_plan plan = fft_plan{n, upper_n, in, out, out_pad, ws, reverse, num_threads, SIMD};
+
+    return plan;
 }
 
 void fft_execute(fft_plan &plan) {
-    raw_fft_itr(plan.out_pad, plan.ws, plan.upper_n, plan.reverse, plan.num_threads);
+    if (plan.SIMD && plan.upper_n > 8)
+        fft_SIMD(plan.out_pad, plan.ws, plan.upper_n, plan.reverse, plan.num_threads);
+    else 
+        raw_fft_itr(plan.out_pad, plan.ws, plan.upper_n, plan.reverse, plan.num_threads);
     for (len_t i = 0; i < plan.n; i++)
         plan.out[i] = plan.out_pad[i];
 }
