@@ -26,7 +26,7 @@ __device__ __host__ cpxcuda operator* (const cpxcuda &a, const cpxcuda &b) {
     return result;
 }
 
-cpxcuda e_imaginary(double x) {
+cpxcuda e_imaginary_cuda(double x) {
     cpxcuda w;
     w.re = cos(x);
     w.im = sin(x);
@@ -36,12 +36,12 @@ cpxcuda e_imaginary(double x) {
 __global__ void kernel(cpxcuda *out_device, cpxcuda *ws, int n, int batch, bool reverse) {
     int idX = blockIdx.x;
     int idY = threadIdx.y;
-    for (len_t block_size = 2, p = 0; block_size <= n; block_size *= 2, p++) {
-        len_t half_block_size = block_size >> 1;
+    for (int block_size = 2, p = 0; block_size <= n; block_size *= 2, p++) {
+        int half_block_size = block_size >> 1;
         int step = n / block_size;
-        for (len_t i = idY; i < n/2; i += blockDim.y) {
-            len_t j = i & (half_block_size - 1);
-            len_t index = ((i >> p) << (p + 1)) + j;
+        for (int i = idY; i < n/2; i += blockDim.y) {
+            int j = i & (half_block_size - 1);
+            int index = ((i >> p) << (p + 1)) + j;
             cpxcuda x = out_device[idX * n + index];
             cpxcuda y = out_device[idX * n + (index + half_block_size)] * ws[j * step];
             out_device[idX * n + index] = x + y;
@@ -53,7 +53,7 @@ __global__ void kernel(cpxcuda *out_device, cpxcuda *ws, int n, int batch, bool 
         cpxcuda mult;
         mult.re = 1/(double)n;
         mult.im = 0;
-        for (len_t i = idY; i < n; i += blockDim.y) {
+        for (int i = idY; i < n; i += blockDim.y) {
             out_device[idX * n + i] = out_device[idX * n + i] * mult;
         }
     }
@@ -81,7 +81,7 @@ fft_plan_cuda fft_plan_cuda_1d(int n, int batch, cpxcuda *in, cpxcuda *out, bool
 
     cpxcuda *ws = (cpxcuda *) calloc(upper_n / 2, sizeof(cpxcuda));
     ws[0].re = 1; ws[0].im = 0;
-    ws[1] = e_imaginary(double(2 * M_PI) / double(upper_n) * (reverse ? -1 : 1)); 
+    ws[1] = e_imaginary_cuda(double(2 * M_PI) / double(upper_n) * (reverse ? -1 : 1)); 
     for (int i = 2; i < upper_n / 2; i++)
         ws[i] = ws[i - 1] * ws[1];
 

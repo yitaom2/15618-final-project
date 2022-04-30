@@ -2,8 +2,6 @@
 #define FFT_CUDA_H
 #endif
 
-typedef int len_t;
-
 struct cpxcuda {
     double re, im;
 };

@@ -1,6 +1,6 @@
 APP_NAME=fftifft
 
-OBJS=fft.o
+OBJS=fft.o fft_cuda.o
 
 CXX = g++ -m64 -mavx -std=c++11
 CXXFLAGS = -I. -Wall -fopenmp -Wno-unknown-pragmas -O3
@@ -37,7 +37,7 @@ build:
 	docker build . -t benchmark
 
 benchmark: benchmark.cpp $(OBJS)
-	$(CXX) $< $(BENCHMARKFLAGS) -o $@ $(OBJS)
+	$(CXX) $< $(BENCHMARKFLAGS) -o $@ $(OBJS) $(LDFLAGS) $(LDLIBS) $(LDFRAMEWORKS)
 
 run-bench: build
 	docker run -v $(shell pwd):/work --rm -it benchmark
