@@ -2,14 +2,19 @@
 #define FFT_CUDA_H
 #endif
 
-#include <complex>
+typedef int len_t;
 
-
-struct fft_plan_cuda {
-    
+struct cpxcuda {
+    double re, im;
 };
 
-fft_plan_cuda fft_plan_cuda_1d();
+struct fft_plan_cuda {
+    int n, batch;
+    cpxcuda *out, *out_device, *ws_device;
+    bool reverse;
+};
+
+fft_plan_cuda fft_plan_cuda_1d(int n, int batch, cpxcuda *in, cpxcuda *out, bool reverse);
 
 void fft_execute_plan_cuda(fft_plan_cuda &plan);
 
