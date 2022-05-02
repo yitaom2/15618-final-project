@@ -3,7 +3,7 @@ APP_NAME=fftifft
 OBJS=fft.o fft_cuda.o
 
 CXX = g++ -m64 -mavx -std=c++11
-CXXFLAGS = -I. -Wall -fopenmp -Wno-unknown-pragmas -O3
+CXXFLAGS = -I. -Wall -fopenmp -lgomp -Wno-unknown-pragmas 
 BENCHMARKFLAGS = -lfftw3 -I${HOME}/private/benchmark/include -I${HOME}/private/benchmark/build/include ${HOME}/private/benchmark/build/src/libbenchmark.a -pthread -lm $(CXXFLAGS)
 
 LDFLAGS=-L/usr/local/depot/cuda-10.2/lib64/ -lcudart
@@ -21,8 +21,8 @@ NVCC=nvcc
 
 default: $(APP_NAME)
 
-$(APP_NAME): $(APP_NAME).cpp $(OBJS)
-	$(CXX) $< $(CXXFLAGS) -o $@ $(OBJS)
+$(APP_NAME): $(APP_NAME).cpp fft.o
+	$(CXX) $< $(CXXFLAGS) -o $@ fft.o
 
 cuda: fftifft_cuda.cpp fft_cuda.o
 	$(CXX) $(CXXFLAGS) -o fftifft_cuda $^ $(LDFLAGS) $(LDLIBS) $(LDFRAMEWORKS)

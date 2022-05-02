@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "fft.h"
+#include <omp.h>
 using namespace std;
 
 len_t power_of_two(len_t n) {
@@ -81,6 +82,7 @@ void fft_SIMD(complex<double>* output, complex<double>* ws, len_t n, bool revers
     len_t shift = 0, p = 0, block_size = 2;
     for (len_t x = n; x > 1; x >>= 1, shift++);
 
+    double curtime = omp_get_wtime();
     for (; block_size <= VEC_SIZE; block_size *= 2, p++) {
         len_t half_block_size = block_size >> 1;
         shift -= 1;
@@ -94,6 +96,8 @@ void fft_SIMD(complex<double>* output, complex<double>* ws, len_t n, bool revers
             output[index + half_block_size] = x - y;
         }
     }
+    // printf("part1 : %.6f\n", omp_get_wtime() - curtime);
+    curtime = omp_get_wtime();
 
     float *real = (float *) aligned_alloc(256, VEC_SIZE * sizeof(float));
     float *imag = (float *) aligned_alloc(256, VEC_SIZE * sizeof(float));
@@ -101,7 +105,9 @@ void fft_SIMD(complex<double>* output, complex<double>* ws, len_t n, bool revers
     complex_simd *ws_simd = (complex_simd *) aligned_alloc(256, n / 2 / VEC_SIZE * sizeof(complex_simd));
 
     load_to_simd_vector(output, out_simd, n);
-    
+    // printf("part2 : %.6f\n", omp_get_wtime() - curtime);
+    curtime = omp_get_wtime();
+
     for (; block_size <= n; block_size <<= 1, p++) {
         shift -= 1;
         len_t half_block_size = block_size >> 1;
@@ -128,8 +134,12 @@ void fft_SIMD(complex<double>* output, complex<double>* ws, len_t n, bool revers
             out_simd[index + half_block_size_simd] = x - y;
         }
     }
+    // printf("part 3 : %.6f\n", omp_get_wtime() - curtime);
+    curtime = omp_get_wtime();
 
     store_from_simd_vector(out_simd, output, n);
+
+    // printf("part 4 : %.6f\n", omp_get_wtime() - curtime);
 
     if (reverse) {
         for (len_t i = 0; i < n; i++) {
@@ -145,11 +155,28 @@ void fft_SIMD(complex<double>* output, complex<double>* ws, len_t n, bool revers
 
 void raw_fft_itr(complex<double>* output, complex<double>* ws, len_t n, bool reverse, int num_threads) {
     int shift = 0;
+    float duration[num_threads];
+    for (int i = 0; i < num_threads; i++) duration[i] = 0;
     for (int x = n; x > 1; x >>= 1, shift++);
     for (len_t block_size = 2, p = 0; block_size <= n; block_size *= 2, p++) {
         len_t half_block_size = block_size >> 1;
         shift -= 1;
-        #pragma omp parallel for schedule(static),num_threads(num_threads)
+        #pragma omp parallel 
+        {
+            double curtime = omp_get_wtime();
+            #pragma omp for schedule(static)
+            for (len_t i = 0; i < n / 2; i++) {
+                len_t j = i & (half_block_size - 1);
+                len_t index = ((i >> p) << (p + 1)) + j;
+                complex<double> x = output[index];
+                complex<double> y = output[index + half_block_size] * ws[j << shift];
+                output[index] = x + y;
+                output[index + half_block_size] = x - y;
+            }
+            curtime = omp_get_wtime() - curtime;
+            duration[omp_get_thread_num()] += curtime;
+        }
+        /*#pragma omp parallel for schedule(static),num_threads(num_threads)
         for (len_t i = 0; i < n / 2; i++) {
             len_t j = i & (half_block_size - 1);
             len_t index = ((i >> p) << (p + 1)) + j;
@@ -157,8 +184,10 @@ void raw_fft_itr(complex<double>* output, complex<double>* ws, len_t n, bool rev
             complex<double> y = output[index + half_block_size] * ws[j << shift];
             output[index] = x + y;
             output[index + half_block_size] = x - y;
-        }
+        }*/
     }
+    // for (int i = 0; i < num_threads; i++)
+    //     printf("Thread %d: %f\n", i, duration[i]);
     if (reverse) {
         for (len_t i = 0; i < n; i++) {
             output[i] *= complex<double>(1/(double)n, 0);
@@ -166,7 +195,47 @@ void raw_fft_itr(complex<double>* output, complex<double>* ws, len_t n, bool rev
     }
 }
 
-fft_plan fft_plan_dft_1d(len_t n, std::complex<double> *in, std::complex<double> *out, bool reverse, int num_threads = 1, bool SIMD = false) {
+void *fft_pthread(void *args_v) {
+    double curtime = omp_get_wtime();
+    pthread_args *args = (pthread_args *)args_v;
+    fft_plan *plan = args->plan;
+    complex<double> *output = plan->out_pad;
+    complex<double> *ws = plan->ws;
+    bool reverse = plan->reverse;
+    int thread_count = plan->num_threads;
+    len_t n = plan->upper_n;
+    pthread_barrier_t *barr = plan->barr;
+    len_t thread_id = args->thread_id;
+
+    int shift = 0;
+    len_t thread_block_size = (n / 2 + thread_count - 1) / thread_count;
+    len_t startIndex = thread_block_size * thread_id;
+    len_t endIndex = min(n / 2, startIndex + thread_block_size);
+    for (int x = n; x > 1; x >>= 1, shift++);
+    for (len_t block_size = 2, p = 0; block_size <= n; block_size *= 2, p++) {
+        len_t half_block_size = block_size >> 1;
+        shift -= 1;
+        for (len_t i = startIndex; i < endIndex; i++) {
+            len_t j = i & (half_block_size - 1);
+            len_t index = ((i >> p) << (p + 1)) + j;
+            complex<double> x = output[index];
+            complex<double> y = output[index + half_block_size] * ws[j << shift];
+            output[index] = x + y;
+            output[index + half_block_size] = x - y;
+        }
+        pthread_barrier_wait(barr);
+    }
+    // printf("thread %d: %.6f\n", thread_id, omp_get_wtime() - curtime);
+    
+    if (reverse && !thread_id) {
+        for (len_t i = 0; i < n; i++) {
+            output[i] *= complex<double>(1/(double)n, 0);
+        }
+    }
+}
+
+
+fft_plan fft_plan_dft_1d(len_t n, std::complex<double> *in, std::complex<double> *out, bool reverse, int num_threads = 1, bool SIMD = false, bool pth = false) {
     len_t upper_n = power_of_two(n);
     complex<double> *out_pad = (complex<double>*) calloc(upper_n, sizeof(complex<double>));
     complex<double> *ws = (complex<double>*) calloc(upper_n, sizeof(complex<double>));
@@ -187,7 +256,7 @@ fft_plan fft_plan_dft_1d(len_t n, std::complex<double> *in, std::complex<double>
     for (int i = 2; i < upper_n / 2; i++)
         ws[i] = ws[i - 1] * ws[1];
 
-    fft_plan plan = fft_plan{n, upper_n, in, out, out_pad, ws, reverse, num_threads, SIMD};
+    fft_plan plan = fft_plan{n, upper_n, in, out, out_pad, ws, reverse, num_threads, SIMD, pth};
 
     return plan;
 }
@@ -195,8 +264,22 @@ fft_plan fft_plan_dft_1d(len_t n, std::complex<double> *in, std::complex<double>
 void fft_execute(fft_plan &plan) {
     if (plan.SIMD && plan.upper_n > 8)
         fft_SIMD(plan.out_pad, plan.ws, plan.upper_n, plan.reverse, plan.num_threads);
-    else 
+    else if (!plan.pth)
         raw_fft_itr(plan.out_pad, plan.ws, plan.upper_n, plan.reverse, plan.num_threads);
+    else {
+        pthread_barrier_t barr;
+        pthread_barrier_init(&barr, NULL, plan.num_threads);
+        plan.barr = &barr;
+        pthread_t thread_id[8];
+        pthread_args args[8];
+        for (int i = 0; i < plan.num_threads; i++) {
+            args[i].plan = &plan;
+            args[i].thread_id = i;
+            pthread_create(&thread_id[i], NULL, &fft_pthread, (void *) &args[i]);
+        }
+        for (int i = 0; i < plan.num_threads; i++)
+            pthread_join(thread_id[i], NULL);
+    }
     for (len_t i = 0; i < plan.n; i++)
         plan.out[i] = plan.out_pad[i];
 }

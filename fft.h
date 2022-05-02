@@ -4,6 +4,7 @@
 
 #include <complex>
 #include "immintrin.h"
+#include <pthread.h>
 
 typedef long long int len_t;
 
@@ -16,10 +17,16 @@ struct fft_plan {
     std::complex<double> *in, *out, *out_pad, *ws;
     bool reverse;
     int num_threads;
-    bool SIMD;
+    bool SIMD, pth;
+    pthread_barrier_t *barr;
 };
 
-fft_plan fft_plan_dft_1d(len_t n, std::complex<double> *in, std::complex<double> *out, bool reverse, int num_threads, bool SIMD);
+struct pthread_args {
+    fft_plan *plan;
+    int thread_id;
+};
+
+fft_plan fft_plan_dft_1d(len_t n, std::complex<double> *in, std::complex<double> *out, bool reverse, int num_threads, bool SIMD, bool pth);
 
 void fft_execute(fft_plan &plan);
 

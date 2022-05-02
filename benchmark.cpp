@@ -34,7 +34,7 @@ static void bm_fft_single_thread(benchmark::State& state) {
         double d2 = static_cast<double> (rand()) / static_cast<double> (RAND_MAX);;
         input[i] = std::complex<double>(d1, d2);
     }
-    fft_plan plan = fft_plan_dft_1d(N, input, out, false, 1, false);
+    fft_plan plan = fft_plan_dft_1d(N, input, out, false, 1, false, true);
 
     while (state.KeepRunning()) {
         fft_execute(plan);
@@ -54,7 +54,7 @@ static void bm_fft_multithread(benchmark::State& state) {
         double d2 = static_cast<double> (rand()) / static_cast<double> (RAND_MAX);;
         input[i] = std::complex<double>(d1, d2);
     }
-    fft_plan plan = fft_plan_dft_1d(N, input, out, false, 8, false);
+    fft_plan plan = fft_plan_dft_1d(N, input, out, false, 8, false, true);
 
     while (state.KeepRunning()) {
         fft_execute(plan);
@@ -74,7 +74,7 @@ static void bm_fft_simd(benchmark::State& state) {
         double d2 = static_cast<double> (rand()) / static_cast<double> (RAND_MAX);;
         input[i] = std::complex<double>(d1, d2);
     }
-    fft_plan plan = fft_plan_dft_1d(N, input, out, false, 1, true);
+    fft_plan plan = fft_plan_dft_1d(N, input, out, false, 1, true, false);
 
     while (state.KeepRunning()) {
         fft_execute(plan);
@@ -94,7 +94,7 @@ static void bm_fft_simd_multithread(benchmark::State& state) {
         double d2 = static_cast<double> (rand()) / static_cast<double> (RAND_MAX);;
         input[i] = std::complex<double>(d1, d2);
     }
-    fft_plan plan = fft_plan_dft_1d(N, input, out, false, 8, true);
+    fft_plan plan = fft_plan_dft_1d(N, input, out, false, 8, true, false);
 
     while (state.KeepRunning()) {
         fft_execute(plan);
