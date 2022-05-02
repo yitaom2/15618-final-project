@@ -78,6 +78,14 @@ At this point we are concerned with two major issues.
 
 (2) We haven't fully understood the GPU parallelization of FFT. Also, the GPU parallelization will very likely require modification of our current data structures, and we are unsure of the speedup we could achieve.
 
+### Report
+multi-thread O3, if no O3, almost *8. Multithread is slightly better than openmp in speedup (slower in 1 thread, faster in 8 threads).
+SIMD: first part without SIMD has high portion, preventing the total speedup to reach optimal(around *3 speedup). Second part load also cause overhead. 
+One interesting problem: why is 0.06 + 8 * 0.03 smaller than single thread version.
+part three's for loop might need parallel version.
+Possibly influence from load/store. 
+
+
 ### References
 [1] Wikipedia. Fast Fourier transform — Wikipedia, the free encyclopedia. http://en.wikipedia.
 org/w/index.php?title=Fast\%20Fourier\%20transform&oldid=1073961290, 2022. [On-
