@@ -28,11 +28,11 @@ int main(int argc, char **argv) {
             in[i] = complex<double>(argv[1][i] - '0', 0);
     }
     int num_threads = 1;
-    fft_plan plan = fft_plan_dft_1d(n, in, out, false, num_threads, false, true);
+    fft_plan plan = fft_plan_dft_1d(n, in, out, false, num_threads, false, false);
     for(int i = 0; i < 1; i++) fft_execute(plan);
     fft_destroy_plan(plan);
     
-    plan = fft_plan_dft_1d(n, out, in, true, num_threads, false, true);
+    plan = fft_plan_dft_1d(n, out, in, true, num_threads, false, false);
     for(int i = 0; i < 1; i++) fft_execute(plan);
     fft_destroy_plan(plan);
     

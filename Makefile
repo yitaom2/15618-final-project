@@ -3,7 +3,7 @@ APP_NAME=fftifft
 OBJS=fft.o fft_cuda.o
 
 CXX = g++ -m64 -mavx -std=c++11
-CXXFLAGS = -I. -Wall -fopenmp -lgomp -Wno-unknown-pragmas 
+CXXFLAGS = -I. -Wall -fopenmp -lgomp -Wno-unknown-pragmas
 BENCHMARKFLAGS = -lfftw3 -I${HOME}/private/benchmark/include -I${HOME}/private/benchmark/build/include ${HOME}/private/benchmark/build/src/libbenchmark.a -pthread -lm $(CXXFLAGS)
 
 LDFLAGS=-L/usr/local/depot/cuda-10.2/lib64/ -lcudart
@@ -11,7 +11,7 @@ CU_FILES   := fft_cuda.cu
 LIBS       :=
 FRAMEWORKS :=
 
-NVCCFLAGS=-O3 -m64 --gpu-architecture compute_61 -ccbin /usr/bin/gcc
+NVCCFLAGS=-g -m64 --gpu-architecture compute_61 -ccbin /usr/bin/gcc
 LIBS += GL glut cudart
 
 LDLIBS  := $(addprefix -l, $(LIBS))

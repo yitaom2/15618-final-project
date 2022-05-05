@@ -139,7 +139,6 @@ void fft_SIMD(complex<double>* output, complex<double>* ws, len_t n, bool revers
 
     store_from_simd_vector(out_simd, output, n);
 
-    // printf("part 4 : %.6f\n", omp_get_wtime() - curtime);
 
     if (reverse) {
         for (len_t i = 0; i < n; i++) {
@@ -151,32 +150,19 @@ void fft_SIMD(complex<double>* output, complex<double>* ws, len_t n, bool revers
     free(imag);
     free(ws_simd);
     free(out_simd);
+    // printf("part 4 : %.6f\n", omp_get_wtime() - curtime);
 }
 
-void raw_fft_itr(complex<double>* output, complex<double>* ws, len_t n, bool reverse, int num_threads) {
+void sequential_fft_itr(complex<double>* output, complex<double>* ws, len_t n, bool reverse, int num_threads) {
     int shift = 0;
     float duration[num_threads];
     for (int i = 0; i < num_threads; i++) duration[i] = 0;
     for (int x = n; x > 1; x >>= 1, shift++);
-    for (len_t block_size = 2, p = 0; block_size <= n; block_size *= 2, p++) {
+    len_t block_size = 2, p = 0;
+    double curtime = omp_get_wtime();
+    for (; block_size <= VEC_SIZE; block_size *= 2, p++) {
         len_t half_block_size = block_size >> 1;
         shift -= 1;
-        #pragma omp parallel 
-        {
-            double curtime = omp_get_wtime();
-            #pragma omp for schedule(static)
-            for (len_t i = 0; i < n / 2; i++) {
-                len_t j = i & (half_block_size - 1);
-                len_t index = ((i >> p) << (p + 1)) + j;
-                complex<double> x = output[index];
-                complex<double> y = output[index + half_block_size] * ws[j << shift];
-                output[index] = x + y;
-                output[index + half_block_size] = x - y;
-            }
-            curtime = omp_get_wtime() - curtime;
-            duration[omp_get_thread_num()] += curtime;
-        }
-        /*#pragma omp parallel for schedule(static),num_threads(num_threads)
         for (len_t i = 0; i < n / 2; i++) {
             len_t j = i & (half_block_size - 1);
             len_t index = ((i >> p) << (p + 1)) + j;
@@ -184,8 +170,26 @@ void raw_fft_itr(complex<double>* output, complex<double>* ws, len_t n, bool rev
             complex<double> y = output[index + half_block_size] * ws[j << shift];
             output[index] = x + y;
             output[index + half_block_size] = x - y;
-        }*/
+        }
     }
+    complex<double> *ws_cur = (complex<double> *) calloc(n / 2, sizeof(complex<double>));
+    // printf("part1 : %.6f\n", omp_get_wtime() - curtime);
+    curtime = omp_get_wtime();
+    for (; block_size <= n; block_size *= 2, p++) {
+        len_t half_block_size = block_size >> 1;
+        shift -= 1;
+        for (len_t i = 0; i < half_block_size; i++)
+            ws_cur[i] = ws[i << shift];
+        for (len_t i = 0; i < n / 2; i++) {
+            len_t j = i & (half_block_size - 1);
+            len_t index = ((i >> p) << (p + 1)) + j;
+            complex<double> x = output[index];
+            complex<double> y = output[index + half_block_size] * ws_cur[j];
+            output[index] = x + y;
+            output[index + half_block_size] = x - y;
+        }
+    }
+    // printf("part 3 : %.6f\n", omp_get_wtime() - curtime);
     // for (int i = 0; i < num_threads; i++)
     //     printf("Thread %d: %f\n", i, duration[i]);
     if (reverse) {
@@ -193,6 +197,56 @@ void raw_fft_itr(complex<double>* output, complex<double>* ws, len_t n, bool rev
             output[i] *= complex<double>(1/(double)n, 0);
         }
     }
+    free(ws_cur);
+}
+
+void raw_fft_itr(complex<double>* output, complex<double>* ws, len_t n, bool reverse, int num_threads) {
+    int shift = 0;
+    float duration[num_threads];
+    for (int i = 0; i < num_threads; i++) duration[i] = 0;
+    for (int x = n; x > 1; x >>= 1, shift++);
+    len_t block_size = 2, p = 0;
+    double curtime = omp_get_wtime();
+    for (; block_size <= VEC_SIZE; block_size *= 2, p++) {
+        len_t half_block_size = block_size >> 1;
+        shift -= 1;
+        #pragma omp parallel for schedule(static),num_threads(num_threads)
+        for (len_t i = 0; i < n / 2; i++) {
+            len_t j = i & (half_block_size - 1);
+            len_t index = ((i >> p) << (p + 1)) + j;
+            complex<double> x = output[index];
+            complex<double> y = output[index + half_block_size] * ws[j << shift];
+            output[index] = x + y;
+            output[index + half_block_size] = x - y;
+        }
+    }
+    complex<double> *ws_cur = (complex<double> *) calloc(n / 2, sizeof(complex<double>));
+    // printf("part1 : %.6f\n", omp_get_wtime() - curtime);
+    curtime = omp_get_wtime();
+    for (; block_size <= n; block_size *= 2, p++) {
+        len_t half_block_size = block_size >> 1;
+        shift -= 1;
+        for (len_t i = 0; i < half_block_size; i++)
+            ws_cur[i] = ws[i << shift];
+        #pragma omp parallel for schedule(static),num_threads(num_threads)
+        for (len_t i = 0; i < n / 2; i++) {
+            len_t j = i & (half_block_size - 1);
+            len_t index = ((i >> p) << (p + 1)) + j;
+            complex<double> x = output[index];
+            complex<double> y = output[index + half_block_size] * ws_cur[j];
+            output[index] = x + y;
+            output[index + half_block_size] = x - y;
+        }
+    }
+    // printf("part 3 : %.6f\n", omp_get_wtime() - curtime);
+    // for (int i = 0; i < num_threads; i++)
+    //     printf("Thread %d: %f\n", i, duration[i]);
+    if (reverse) {
+        for (len_t i = 0; i < n; i++) {
+            output[i] *= complex<double>(1/(double)n, 0);
+        }
+    }
+    free(ws_cur);
 }
 
 void *fft_pthread(void *args_v) {
@@ -238,7 +292,7 @@ void *fft_pthread(void *args_v) {
 fft_plan fft_plan_dft_1d(len_t n, std::complex<double> *in, std::complex<double> *out, bool reverse, int num_threads = 1, bool SIMD = false, bool pth = false) {
     len_t upper_n = power_of_two(n);
     complex<double> *out_pad = (complex<double>*) calloc(upper_n, sizeof(complex<double>));
-    complex<double> *ws = (complex<double>*) calloc(upper_n, sizeof(complex<double>));
+    complex<double> *ws = (complex<double>*) calloc(upper_n / 2, sizeof(complex<double>));
     int *index_mapping = (int*) calloc(upper_n, sizeof(int));
     // swap
     int bit=0;
@@ -246,6 +300,7 @@ fft_plan fft_plan_dft_1d(len_t n, std::complex<double> *in, std::complex<double>
     for (int i = 0; i < upper_n - 1; i++) {
         index_mapping[i] = (index_mapping[i >> 1] >> 1) | ((i & 1) << (bit - 1));
     }
+    // reference for the above 4 lines: https://blog.csdn.net/enjoy_pascal/article/details/81478582/
     index_mapping[upper_n - 1] = upper_n - 1;
     for (int i = 0; i < upper_n; i++)
         out_pad[index_mapping[i]] = in[i];

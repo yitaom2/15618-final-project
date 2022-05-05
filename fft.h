@@ -26,6 +26,8 @@ struct pthread_args {
     int thread_id;
 };
 
+void sequential_fft_itr(std::complex<double>* output, std::complex<double>* ws, len_t n, bool reverse, int num_threads);
+
 fft_plan fft_plan_dft_1d(len_t n, std::complex<double> *in, std::complex<double> *out, bool reverse, int num_threads, bool SIMD, bool pth);
 
 void fft_execute(fft_plan &plan);

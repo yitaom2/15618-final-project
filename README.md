@@ -81,9 +81,12 @@ At this point we are concerned with two major issues.
 ### Report
 multi-thread O3, if no O3, almost *8. Multithread is slightly better than openmp in speedup (slower in 1 thread, faster in 8 threads).
 SIMD: first part without SIMD has high portion, preventing the total speedup to reach optimal(around *3 speedup). Second part load also cause overhead. 
-One interesting problem: why is 0.06 + 8 * 0.03 smaller than single thread version.
-part three's for loop might need parallel version.
+One interesting problem: why is 0.06 + 8 * 0.03 smaller than single thread version. Cache miss difference observed, not sure why.
+part three's for loop might need parallel version <- No improvements, leave as it is.
 Possibly influence from load/store. 
+(1) O3
+(2) load-store
+(3) cache miss
 
 
 ### References
@@ -91,3 +94,4 @@ Possibly influence from load/store.
 org/w/index.php?title=Fast\%20Fourier\%20transform&oldid=1073961290, 2022. [On-
 line; accessed 22-March-2022].
 [2] youtube channels: Reducible; 3Blue1Brown
+[3] 4 lines source code from https://blog.csdn.net/enjoy_pascal/article/details/81478582/, used in fft.cpp, function fft_plan_dft_1d.
