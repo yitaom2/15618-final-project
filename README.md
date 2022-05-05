@@ -1,7 +1,7 @@
 # 15618-final-project
 Proposal link: https://drive.google.com/file/d/1H6Dh6pzju2yUPYrLQwE_7uuU_qGkSM_r/view?usp=sharing
 
-Recording link: https://drive.google.com/file/d/1sSLLWidkFB_tkw0GVwHMRvkBHA-VzRuv/view?usp=sharing
+Recording link: https://drive.google.com/file/d/1zFBDPYUr_2Q_xQpMZmnw3myyCP7pd_5I/view?usp=sharing
 
 Final Report: parallel_Project_Final_Report.pdf in this folder
 
