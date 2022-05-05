@@ -3,6 +3,8 @@ Proposal link: https://drive.google.com/file/d/1H6Dh6pzju2yUPYrLQwE_7uuU_qGkSM_r
 
 Recording link: https://drive.google.com/file/d/1sSLLWidkFB_tkw0GVwHMRvkBHA-VzRuv/view?usp=sharing
 
+Final Report: parallel_Project_Final_Report.pdf in this folder
+
 ### Sections
 [Summary](#summary) <br/>
 [Background](#background) <br/>
